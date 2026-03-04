@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#3333aa">
+<title>CBM BASIC V2</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --c64-bg:     #3333aa;
+    --c64-text:   #7777ff;
+    --c64-bright: #aaaaff;
+    --c64-border: #7777cc;
+    --c64-key-bg: #222266;
+    --c64-key-active: #5555cc;
+    --c64-cursor:  #aaaaff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    background: #1a1a55;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    overflow: hidden;
+    touch-action: manipulation;
+  }
+
+  #machine {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  /* ── Screen ───────────────────────────────────── */
+  #screen-wrap {
+    background: var(--c64-bg);
+    border: 3px solid var(--c64-border);
+    border-bottom: none;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  #topbar {
+    background: #5555bb;
+    padding: 3px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid var(--c64-border);
+    flex-shrink: 0;
+  }
+  #topbar span {
+    color: var(--c64-bright);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  #topbar-btns { display: flex; gap: 6px; }
+  .tbtn {
+    background: var(--c64-key-bg);
+    color: var(--c64-bright);
+    border: 1px solid var(--c64-border);
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 9px;
+    padding: 2px 6px;
+    cursor: pointer;
+    letter-spacing: 1px;
+  }
+  .tbtn:active { background: var(--c64-key-active); }
+
+  #output-area {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 6px 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #output {
+    color: var(--c64-text);
+    font-size: clamp(12px, 3.5vw, 16px);
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  /* blinking cursor block */
+  #cursor-block {
+    display: inline-block;
+    width: 0.6em;
+    height: 1em;
+    background: var(--c64-cursor);
+    vertical-align: text-bottom;
+    animation: blink 0.8s step-end infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  #input-line {
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-top: 1px solid #5555bb;
+    background: #2a2a88;
+    flex-shrink: 0;
+  }
+  #input-prompt { color: var(--c64-bright); font-size: clamp(12px,3.5vw,16px); margin-right: 4px; }
+  #input-field {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--c64-bright);
+    font-family: inherit;
+    font-size: clamp(12px,3.5vw,16px);
+    caret-color: var(--c64-cursor);
+  }
+  #input-field::selection { background: var(--c64-text); color: var(--c64-bg); }
+
+  /* ── Keyboard ─────────────────────────────────── */
+  #keyboard {
+    background: #222255;
+    border: 3px solid var(--c64-border);
+    border-top: 2px solid #4444aa;
+    padding: 6px 4px;
+    flex-shrink: 0;
+    user-select: none;
+  }
+
+  .kb-row {
+    display: flex;
+    justify-content: center;
+    gap: 3px;
+    margin-bottom: 3px;
+  }
+
+  .key {
+    background: var(--c64-key-bg);
+    color: var(--c64-bright);
+    border: 1px solid #4444aa;
+    border-bottom: 3px solid #111144;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: clamp(10px, 2.8vw, 14px);
+    min-width: clamp(24px, 7.5vw, 40px);
+    height: clamp(30px, 8vw, 42px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex: 1;
+    max-width: 52px;
+    position: relative;
+    transition: background 0.07s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .key:active, .key.pressed {
+    background: var(--c64-key-active);
+    border-bottom-width: 1px;
+    transform: translateY(2px);
+  }
+  .key.wide  { flex: 1.6; max-width: 80px; font-size: clamp(9px,2.2vw,12px); }
+  .key.wider { flex: 2.5; max-width: 120px; }
+  .key.widest { flex: 5; max-width: 260px; }
+  .key .sub {
+    position: absolute;
+    top: 2px; right: 3px;
+    font-size: 8px;
+    color: #9999dd;
+    line-height: 1;
+  }
+  .key.fn  { background: #1a1a4a; color: #ffaa00; font-size: clamp(8px,2.2vw,11px); }
+  .key.fn:active { background: #3a3a6a; }
+
+  /* tabs for fn/basic keywords */
+  #tab-bar {
+    display: flex;
+    gap: 2px;
+    padding: 0 4px 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  #tab-bar::-webkit-scrollbar { display: none; }
+  .kw-key {
+    background: #1a1a4a;
+    color: #ffaa44;
+    border: 1px solid #4444aa;
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: clamp(9px,2.5vw,12px);
+    padding: 3px 7px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    letter-spacing: 0.5px;
+  }
+  .kw-key:active { background: #3a3a7a; }
+
+  /* ── Programs modal ───────────────────────────── */
+  #prog-modal {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  #prog-modal.open { display: flex; }
+  #prog-box {
+    background: var(--c64-bg);
+    border: 3px solid var(--c64-border);
+    width: min(95vw, 400px);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  #prog-header {
+    background: #5555bb;
+    padding: 8px 12px;
+    color: var(--c64-bright);
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    letter-spacing: 1px;
+  }
+  #prog-list { overflow-y: auto; flex: 1; }
+  .prog-item {
+    padding: 10px 14px;
+    border-bottom: 1px solid #4444aa;
+    color: var(--c64-text);
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .prog-item:active { background: #4444aa; }
+  .prog-name { color: var(--c64-bright); font-size: 14px; }
+  .prog-desc { color: #8888cc; font-size: 11px; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<div id="machine">
+  <div id="screen-wrap">
+    <div id="topbar">
+      <span>&#9632; CBM BASIC V2</span>
+      <div id="topbar-btns">
+        <button class="tbtn" onclick="showPrograms()">PROGRAMS</button>
+        <button class="tbtn" onclick="cmdNew()">NEW</button>
+        <button class="tbtn" onclick="cmdRun()">RUN</button>
+        <button class="tbtn" onclick="cmdList()">LIST</button>
+      </div>
+    </div>
+    <div id="output-area">
+      <div id="output"></div>
+    </div>
+    <div id="input-line">
+      <span id="input-prompt">&#9632;</span>
+      <input id="input-field" type="text" autocomplete="off" autocorrect="off"
+             autocapitalize="characters" spellcheck="false"
+             placeholder="TYPE COMMANDS OR BASIC CODE...">
+    </div>
+  </div>
+
+  <div id="keyboard">
+    <div id="tab-bar">
+      <button class="kw-key" onclick="insertKw('PRINT ')">PRINT</button>
+      <button class="kw-key" onclick="insertKw('FOR ')">FOR</button>
+      <button class="kw-key" onclick="insertKw('TO ')">TO</button>
+      <button class="kw-key" onclick="insertKw('NEXT ')">NEXT</button>
+      <button class="kw-key" onclick="insertKw('STEP ')">STEP</button>
+      <button class="kw-key" onclick="insertKw('GOTO ')">GOTO</button>
+      <button class="kw-key" onclick="insertKw('GOSUB ')">GOSUB</button>
+      <button class="kw-key" onclick="insertKw('RETURN')">RETURN</button>
+      <button class="kw-key" onclick="insertKw('IF ')">IF</button>
+      <button class="kw-key" onclick="insertKw('THEN ')">THEN</button>
+      <button class="kw-key" onclick="insertKw('ELSE ')">ELSE</button>
+      <button class="kw-key" onclick="insertKw('INPUT ')">INPUT</button>
+      <button class="kw-key" onclick="insertKw('LET ')">LET</button>
+      <button class="kw-key" onclick="insertKw('REM ')">REM</button>
+      <button class="kw-key" onclick="insertKw('DIM ')">DIM</button>
+      <button class="kw-key" onclick="insertKw('DATA ')">DATA</button>
+      <button class="kw-key" onclick="insertKw('READ ')">READ</button>
+      <button class="kw-key" onclick="insertKw('RESTORE')">RESTORE</button>
+      <button class="kw-key" onclick="insertKw('END')">END</button>
+      <button class="kw-key" onclick="insertKw('ON ')">ON</button>
+      <button class="kw-key" onclick="insertKw('AND ')">AND</button>
+      <button class="kw-key" onclick="insertKw('OR ')">OR</button>
+      <button class="kw-key" onclick="insertKw('NOT ')">NOT</button>
+      <button class="kw-key" onclick="insertKw('SIN(')">SIN</button>
+      <button class="kw-key" onclick="insertKw('COS(')">COS</button>
+      <button class="kw-key" onclick="insertKw('SQR(')">SQR</button>
+      <button class="kw-key" onclick="insertKw('INT(')">INT</button>
+      <button class="kw-key" onclick="insertKw('ABS(')">ABS</button>
+      <button class="kw-key" onclick="insertKw('RND(1)')">RND</button>
+      <button class="kw-key" onclick="insertKw('TAB(')">TAB</button>
+      <button class="kw-key" onclick="insertKw('LEN(')">LEN</button>
+      <button class="kw-key" onclick="insertKw('LEFT$(')">LEFT$</button>
+      <button class="kw-key" onclick="insertKw('RIGHT$(')">RIGHT$</button>
+      <button class="kw-key" onclick="insertKw('MID$(')">MID$</button>
+      <button class="kw-key" onclick="insertKw('CHR$(')">CHR$</button>
+      <button class="kw-key" onclick="insertKw('STR$(')">STR$</button>
+      <button class="kw-key" onclick="insertKw('VAL(')">VAL</button>
+    </div>
+
+    <!-- Row 1 -->
+    <div class="kb-row">
+      <button class="key fn" onclick="insertKw('RUN\n')">RUN</button>
+      <button class="key fn" onclick="insertKw('LIST\n')">LIST</button>
+      <button class="key fn" onclick="insertKw('NEW\n')">NEW</button>
+      <button class="key fn" onclick="doBreak()">STOP</button>
+      <button class="key fn" onclick="insertKw('LOAD\n')">LOAD</button>
+      <button class="key fn" onclick="insertKw('SAVE\n')">SAVE</button>
+      <button class="key fn" onclick="insertKw('CLR\n')">CLR</button>
+      <button class="key wide" onclick="pressKey('Backspace')">DEL</button>
+    </div>
+    <!-- Row 2: numbers -->
+    <div class="kb-row">
+      <button class="key" onclick="pressKey('1')">1<span class="sub">!</span></button>
+      <button class="key" onclick="pressKey('2')">2<span class="sub">"</span></button>
+      <button class="key" onclick="pressKey('3')">3<span class="sub">#</span></button>
+      <button class="key" onclick="pressKey('4')">4<span class="sub">$</span></button>
+      <button class="key" onclick="pressKey('5')">5<span class="sub">%</span></button>
+      <button class="key" onclick="pressKey('6')">6<span class="sub">&amp;</span></button>
+      <button class="key" onclick="pressKey('7')">7<span class="sub">'</span></button>
+      <button class="key" onclick="pressKey('8')">8<span class="sub">(</span></button>
+      <button class="key" onclick="pressKey('9')">9<span class="sub">)</span></button>
+      <button class="key" onclick="pressKey('0')">0</button>
+    </div>
+    <!-- Row 3: QWERTY -->
+    <div class="kb-row">
+      <button class="key" onclick="pressKey('Q')">Q</button>
+      <button class="key" onclick="pressKey('W')">W</button>
+      <button class="key" onclick="pressKey('E')">E</button>
+      <button class="key" onclick="pressKey('R')">R</button>
+      <button class="key" onclick="pressKey('T')">T</button>
+      <button class="key" onclick="pressKey('Y')">Y</button>
+      <button class="key" onclick="pressKey('U')">U</button>
+      <button class="key" onclick="pressKey('I')">I</button>
+      <button class="key" onclick="pressKey('O')">O</button>
+      <button class="key" onclick="pressKey('P')">P</button>
+    </div>
+    <!-- Row 4: ASDF -->
+    <div class="kb-row">
+      <button class="key" onclick="pressKey('A')">A</button>
+      <button class="key" onclick="pressKey('S')">S</button>
+      <button class="key" onclick="pressKey('D')">D</button>
+      <button class="key" onclick="pressKey('F')">F</button>
+      <button class="key" onclick="pressKey('G')">G</button>
+      <button class="key" onclick="pressKey('H')">H</button>
+      <button class="key" onclick="pressKey('J')">J</button>
+      <button class="key" onclick="pressKey('K')">K</button>
+      <button class="key" onclick="pressKey('L')">L</button>
+      <button class="key wide" onclick="pressKey('Enter')">RETURN</button>
+    </div>
+    <!-- Row 5: ZXCV -->
+    <div class="kb-row">
+      <button class="key wide" id="shift-key" onclick="toggleShift()">SHIFT</button>
+      <button class="key" onclick="pressKey('Z')">Z</button>
+      <button class="key" onclick="pressKey('X')">X</button>
+      <button class="key" onclick="pressKey('C')">C</button>
+      <button class="key" onclick="pressKey('V')">V</button>
+      <button class="key" onclick="pressKey('B')">B</button>
+      <button class="key" onclick="pressKey('N')">N</button>
+      <button class="key" onclick="pressKey('M')">M</button>
+      <button class="key" onclick="pressKey(',')">，</button>
+      <button class="key" onclick="pressKey('.')">.</button>
+    </div>
+    <!-- Row 6: symbols + space -->
+    <div class="kb-row">
+      <button class="key" onclick="pressKey('+')">+</button>
+      <button class="key" onclick="pressKey('-')">-</button>
+      <button class="key" onclick="pressKey('*')">*</button>
+      <button class="key" onclick="pressKey('/')">／</button>
+      <button class="key widest" onclick="pressKey(' ')">SPACE</button>
+      <button class="key" onclick="pressKey('='">=</button>
+      <button class="key" onclick="pressKey('('">(</button>
+      <button class="key" onclick="pressKey(')')">)</button>
+      <button class="key" onclick="pressKey('&quot;')">"</button>
+    </div>
+  </div>
+</div>
+
+<!-- Programs modal -->
+<div id="prog-modal">
+  <div id="prog-box">
+    <div id="prog-header">
+      <span>SAMPLE PROGRAMS</span>
+      <button class="tbtn" onclick="closePrograms()">CLOSE</button>
+    </div>
+    <div id="prog-list"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// ================================================================
+//  BASIC INTERPRETER  (fixed: math fns, FOR/NEXT, string fns)
+// ================================================================
+
+class BasicInterpreter {
+  constructor(inputFn) {
+    this.inputFn = inputFn;
+    this.reset();
+  }
+
+  reset() {
+    this.lines      = new Map();
+    this.numVars    = new Map();
+    this.strVars    = new Map();
+    this.arrays     = new Map();
+    this.forStack   = [];
+    this.gosubStack = [];
+    this.dataItems  = [];
+    this.dataPtr    = 0;
+    this.running    = false;
+    this.stopped    = false;
+    this.printCol   = 0;
+  }
+
+  clrVars() {
+    this.numVars.clear(); this.strVars.clear(); this.arrays.clear();
+    this.forStack = []; this.gosubStack = [];
+    this.dataItems = []; this.dataPtr = 0; this.printCol = 0;
+  }
+
+  addLine(num, text) {
+    if (text.trim() === '') { this.lines.delete(num); return; }
+    this.lines.set(num, text);
+  }
+
+  sortedNums() { return [...this.lines.keys()].sort((a, b) => a - b); }
+
+  listProgram() {
+    const k = this.sortedNums();
+    return k.length ? k.map(n => n + ' ' + this.lines.get(n)).join('\n') : '(NO PROGRAM)';
+  }
+
+  // ── Output ─────────────────────────────────────────────────────
+  rawPrint(s) {
+    const out = document.getElementById('output');
+    out.textContent += s;
+    for (const c of s) { if (c === '\n') this.printCol = 0; else this.printCol++; }
+    const area = document.getElementById('output-area');
+    area.scrollTop = area.scrollHeight;
+  }
+  printLine(s) { this.rawPrint(s + '\n'); this.printCol = 0; }
+
+  // ── Parser helpers ─────────────────────────────────────────────
+  skipWS(p) {
+    while (p.pos < p.src.length && (p.src[p.pos] === ' ' || p.src[p.pos] === '\t')) p.pos++;
+  }
+
+  // Match keyword with word-boundary check (uses startsWith, NOT regex)
+  matchKw(p, kw) {
+    this.skipWS(p);
+    const rest = p.src.slice(p.pos).toUpperCase();
+    const u = kw.toUpperCase();
+    if (!rest.startsWith(u)) return false;
+    const next = rest[u.length];
+    // word boundary: what follows must not be alphanumeric or _ or $
+    if (next && /[A-Z0-9_$]/.test(next)) return false;
+    p.pos += u.length;
+    this.skipWS(p);
+    return true;
+  }
+
+  // Match keyword immediately followed by '(' — safe for names containing $
+  // e.g. matchKwLP(p, 'SIN') matches "SIN(" or "SIN  ("
+  //      matchKwLP(p, 'CHR$') matches "CHR$("
+  matchKwLP(p, kw) {
+    this.skipWS(p);
+    const rest = p.src.slice(p.pos).toUpperCase();
+    const u = kw.toUpperCase();
+    if (!rest.startsWith(u)) return false;
+    let j = u.length;
+    while (rest[j] === ' ') j++;
+    if (rest[j] !== '(') return false;
+    p.pos += j + 1;   // consume keyword + spaces + (
+    this.skipWS(p);
+    return true;
+  }
+
+  readIdent(p) {
+    this.skipWS(p);
+    const m = p.src.slice(p.pos).match(/^[A-Za-z][A-Za-z0-9]*\$?/);
+    if (!m) return null;
+    p.pos += m[0].length;
+    this.skipWS(p);
+    return m[0].toUpperCase();
+  }
+
+  expectCh(p, c) {
+    this.skipWS(p);
+    if (p.src[p.pos] === c) { p.pos++; this.skipWS(p); }
+  }
+
+  // ── DATA collection ────────────────────────────────────────────
+  collectData() {
+    this.dataItems = [];
+    for (const n of this.sortedNums()) {
+      let text = this.lines.get(n);
+      let i = 0;
+      while (i < text.length) {
+        while (i < text.length && text[i] === ' ') i++;
+        const up = text.slice(i).toUpperCase();
+        if (up.startsWith('DATA') && !/[A-Z0-9_$]/.test(up[4] || '')) {
+          i += 4;
+          do {
+            while (i < text.length && text[i] === ' ') i++;
+            if (text[i] === '"') {
+              i++;
+              let s = '';
+              while (i < text.length && text[i] !== '"') s += text[i++];
+              if (text[i] === '"') i++;
+              this.dataItems.push({ str: true, val: s });
+            } else {
+              let tok = '';
+              while (i < text.length && text[i] !== ',' && text[i] !== ':') tok += text[i++];
+              this.dataItems.push({ str: false, val: parseFloat(tok) || 0 });
+            }
+            while (text[i] === ' ') i++;
+            if (text[i] === ',') { i++; continue; }
+            break;
+          } while (true);
+        } else if (up.startsWith('REM')) {
+          break;
+        }
+        while (i < text.length && text[i] !== ':') i++;
+        while (text[i] === ':') i++;
+      }
+    }
+  }
+
+  // ── Main run loop ──────────────────────────────────────────────
+  async run(startLine) {
+    this.clrVars();
+    this.collectData();
+    this.running = true;
+    this.stopped = false;
+
+    const keys = this.sortedNums();
+    if (!keys.length) { this.printLine('?NO PROGRAM'); this.running = false; return; }
+
+    let li = (startLine != null)
+      ? keys.findIndex(k => k >= startLine)
+      : 0;
+    if (li < 0) { this.printLine('?LINE NOT FOUND'); this.running = false; return; }
+
+    let yc = 0;
+
+    while (!this.stopped && li >= 0 && li < keys.length) {
+      if (++yc % 40 === 0) await new Promise(r => setTimeout(r, 0));
+
+      const lineNum = keys[li];
+      const p = { pos: 0, src: this.lines.get(lineNum), lineNum };
+      let jumped = false;
+
+      // ── Execute statements on this line ──────────────────────
+      while (p.pos < p.src.length && !this.stopped) {
+        this.skipWS(p);
+        if (p.pos >= p.src.length) break;
+
+        const res = await this.execStmt(p);
+        if (this.stopped) break;
+        if (!res) {
+          this.skipWS(p);
+          if (p.src[p.pos] === ':') p.pos++;
+          continue;
+        }
+
+        // ── Handle control flow results ───────────────────────
+        if (res.type === 'goto') {
+          li = keys.findIndex(k => k >= res.line);
+          if (li < 0) { this.printLine('?UNDEF\'D STATEMENT IN ' + lineNum); this.stopped = true; }
+          jumped = true; break;
+        }
+
+        if (res.type === 'gosub') {
+          this.gosubStack.push(li);   // remember return line index
+          li = keys.findIndex(k => k >= res.line);
+          if (li < 0) { this.printLine('?UNDEF\'D STATEMENT IN ' + lineNum); this.stopped = true; }
+          jumped = true; break;
+        }
+
+        if (res.type === 'return') {
+          if (!this.gosubStack.length) { this.printLine('?RETURN WITHOUT GOSUB'); this.stopped = true; break; }
+          li = this.gosubStack.pop() + 1;  // line after GOSUB
+          jumped = true; break;
+        }
+
+        if (res.type === 'next') {
+          // Find matching FOR frame
+          let fi = this.forStack.length - 1;
+          const nv = res.varName;
+          if (nv) while (fi >= 0 && this.forStack[fi].varName !== nv) fi--;
+          if (fi < 0) { this.printLine('?NEXT WITHOUT FOR'); this.stopped = true; break; }
+
+          const frame = this.forStack[fi];
+          const val = (this.numVars.get(frame.varName) || 0) + frame.step;
+          this.numVars.set(frame.varName, val);
+          const done = frame.step >= 0 ? val > frame.to : val < frame.to;
+
+          if (!done) {
+            // BUG FIX: jump to line AFTER the FOR line and set jumped=true
+            const forLi = keys.findIndex(k => k >= frame.lineNum);
+            li = (forLi >= 0 ? forLi : 0) + 1;
+            jumped = true;
+          } else {
+            // BUG FIX: loop ended — do NOT set jumped so outer loop does li++
+            this.forStack.splice(fi, 1);
+          }
+          break;
+        }
+      } // end inner statement loop
+
+      if (!jumped && !this.stopped) li++;
+    }
+
+    this.running = false;
+    if (!this.stopped) this.printLine('\nREADY.');
+    else this.printLine('\nBREAK');
+  }
+
+  // ── Statement dispatcher ───────────────────────────────────────
+  async execStmt(p) {
+    this.skipWS(p);
+    if (p.pos >= p.src.length || p.src[p.pos] === ':') return null;
+
+    // REM
+    if (this.matchKw(p, 'REM')) { p.pos = p.src.length; return null; }
+
+    // PRINT / ?
+    if (this.matchKw(p, 'PRINT') || p.src[p.pos] === '?') {
+      if (p.src[p.pos] === '?') p.pos++;
+      await this.doPrint(p);
+      return null;
+    }
+
+    // INPUT
+    if (this.matchKw(p, 'INPUT')) { await this.doInput(p); return null; }
+
+    // Try assignment (with optional LET)
+    {
+      const savedPos = p.pos;
+      this.matchKw(p, 'LET');
+      const sp2 = { pos: p.pos, src: p.src, lineNum: p.lineNum };
+      const aname = this.readIdent(sp2);
+      if (aname) {
+        this.skipWS(sp2);
+        if (sp2.src[sp2.pos] === '=' || sp2.src[sp2.pos] === '(') {
+          p.pos = sp2.pos;
+          return await this.doAssign(p, aname);
+        }
+      }
+      p.pos = savedPos;
+    }
+
+    // GOTO
+    if (this.matchKw(p, 'GOTO')) return { type: 'goto', line: Math.floor(this.parseExpr(p)) };
+
+    // GOSUB
+    if (this.matchKw(p, 'GOSUB')) return { type: 'gosub', line: Math.floor(this.parseExpr(p)) };
+
+    // RETURN
+    if (this.matchKw(p, 'RETURN')) return { type: 'return' };
+
+    // FOR
+    if (this.matchKw(p, 'FOR')) {
+      const varName = this.readIdent(p);
+      this.expectCh(p, '=');
+      const from = this.parseExpr(p);
+      this.matchKw(p, 'TO');
+      const to   = this.parseExpr(p);
+      let   step = 1;
+      if (this.matchKw(p, 'STEP')) step = this.parseExpr(p);
+      this.numVars.set(varName, from);
+      this.forStack.push({ varName, to, step, lineNum: p.lineNum });
+      return null;
+    }
+
+    // NEXT
+    if (this.matchKw(p, 'NEXT')) {
+      const varName = this.readIdent(p) || '';
+      return { type: 'next', varName };
+    }
+
+    // IF
+    if (this.matchKw(p, 'IF')) {
+      const cond = this.parseExpr(p);
+      this.matchKw(p, 'THEN');
+      this.skipWS(p);
+      if (cond !== 0) {
+        if (/\d/.test(p.src[p.pos])) return { type: 'goto', line: Math.floor(this.parseExpr(p)) };
+        return await this.execStmt(p);
+      } else {
+        const up = p.src.toUpperCase();
+        const ei = up.indexOf('ELSE', p.pos);
+        if (ei >= 0) {
+          p.pos = ei + 4; this.skipWS(p);
+          if (/\d/.test(p.src[p.pos])) return { type: 'goto', line: Math.floor(this.parseExpr(p)) };
+          return await this.execStmt(p);
+        }
+        p.pos = p.src.length;
+        return null;
+      }
+    }
+
+    // ON x GOTO/GOSUB
+    if (this.matchKw(p, 'ON')) {
+      const idx = Math.floor(this.parseExpr(p));
+      const isg = this.matchKw(p, 'GOSUB');
+      if (!isg) this.matchKw(p, 'GOTO');
+      const targets = [];
+      while (/\d/.test(p.src[p.pos])) {
+        targets.push(Math.floor(this.parseExpr(p)));
+        this.skipWS(p);
+        if (p.src[p.pos] === ',') { p.pos++; this.skipWS(p); } else break;
+      }
+      if (idx >= 1 && idx <= targets.length)
+        return { type: isg ? 'gosub' : 'goto', line: targets[idx - 1] };
+      return null;
+    }
+
+    // DIM
+    if (this.matchKw(p, 'DIM')) {
+      do {
+        const name = this.readIdent(p);
+        this.expectCh(p, '(');
+        const sz = Math.floor(this.parseExpr(p)) + 1;
+        this.expectCh(p, ')');
+        this.arrays.set(name, new Array(sz).fill(0));
+        this.skipWS(p);
+        if (p.src[p.pos] === ',') { p.pos++; this.skipWS(p); } else break;
+      } while (/[A-Za-z]/.test(p.src[p.pos]));
+      return null;
+    }
+
+    // DATA (skip — collected separately)
+    if (this.matchKw(p, 'DATA')) { p.pos = p.src.length; return null; }
+
+    // READ
+    if (this.matchKw(p, 'READ')) {
+      do {
+        const name = this.readIdent(p);
+        if (this.dataPtr >= this.dataItems.length) {
+          this.printLine('?OUT OF DATA'); this.stopped = true; return null;
+        }
+        const item = this.dataItems[this.dataPtr++];
+        if (name.endsWith('$')) this.strVars.set(name, item.str ? item.val : String(item.val));
+        else this.numVars.set(name, item.str ? (parseFloat(item.val) || 0) : item.val);
+        this.skipWS(p);
+        if (p.src[p.pos] === ',') { p.pos++; this.skipWS(p); } else break;
+      } while (/[A-Za-z]/.test(p.src[p.pos]));
+      return null;
+    }
+
+    // RESTORE
+    if (this.matchKw(p, 'RESTORE')) { this.dataPtr = 0; return null; }
+
+    // END / STOP
+    if (this.matchKw(p, 'END') || this.matchKw(p, 'STOP')) { this.stopped = true; return null; }
+
+    // SLEEP (ticks; 60 ticks = 1 second)
+    if (this.matchKw(p, 'SLEEP')) {
+      const ticks = this.parseExpr(p);
+      await new Promise(r => setTimeout(r, (ticks / 60) * 1000));
+      return null;
+    }
+
+    // CLS / CLR
+    if (this.matchKw(p, 'CLS') || this.matchKw(p, 'CLR')) {
+      document.getElementById('output').textContent = ''; this.printCol = 0;
+      return null;
+    }
+
+    // POKE (stub)
+    if (this.matchKw(p, 'POKE')) { this.parseExpr(p); this.expectCh(p, ','); this.parseExpr(p); return null; }
+
+    this.printLine('?SYNTAX ERROR IN ' + p.lineNum);
+    this.stopped = true;
+    return null;
+  }
+
+  // ── Assignment ─────────────────────────────────────────────────
+  async doAssign(p, name) {
+    this.skipWS(p);
+    if (p.src[p.pos] === '(') {
+      p.pos++; this.skipWS(p);
+      const idx = Math.floor(this.parseExpr(p));
+      this.expectCh(p, ')'); this.expectCh(p, '=');
+      const arr = this.arrays.get(name) || (this.arrays.set(name, []) && this.arrays.get(name));
+      if (name.endsWith('$')) arr[idx] = this.parseStrExpr(p);
+      else arr[idx] = this.parseExpr(p);
+      return null;
+    }
+    this.expectCh(p, '=');
+    if (name.endsWith('$')) this.strVars.set(name, this.parseStrExpr(p));
+    else this.numVars.set(name, this.parseExpr(p));
+    return null;
+  }
+
+  // ── PRINT ──────────────────────────────────────────────────────
+  async doPrint(p) {
+    let nl = true;
+    while (p.pos < p.src.length && p.src[p.pos] !== ':') {
+      this.skipWS(p);
+      if (p.pos >= p.src.length || p.src[p.pos] === ':') break;
+
+      // TAB(n) — must check before generic expression
+      if (this.matchKwLP(p, 'TAB')) {
+        const col = Math.floor(this.parseExpr(p)); this.expectCh(p, ')');
+        while (this.printCol < col) this.rawPrint(' ');
+      }
+      // SPC(n)
+      else if (this.matchKwLP(p, 'SPC')) {
+        const n = Math.floor(this.parseExpr(p)); this.expectCh(p, ')');
+        for (let i = 0; i < n; i++) this.rawPrint(' ');
+      }
+      // String expression?
+      else if (this.looksLikeStr(p)) {
+        this.rawPrint(this.parseStrExpr(p));
+      }
+      // Numeric expression
+      else {
+        const v = this.parseExpr(p);
+        const s = Number.isInteger(v) ? String(v) + ' '
+                                       : parseFloat(v.toPrecision(9)) + ' ';
+        this.rawPrint(s);
+      }
+
+      if (this.stopped) return;
+      this.skipWS(p);
+
+      if (p.src[p.pos] === ';') {
+        p.pos++; this.skipWS(p);
+        // trailing semicolon → suppress newline
+        if (!p.src[p.pos] || p.src[p.pos] === ':') { nl = false; break; }
+        // mid-line semicolon → keep going (no newline yet)
+      } else if (p.src[p.pos] === ',') {
+        // advance to next print zone (every 14 columns)
+        const zone = (Math.floor(this.printCol / 14) + 1) * 14;
+        while (this.printCol < zone) this.rawPrint(' ');
+        p.pos++; this.skipWS(p);
+        if (!p.src[p.pos] || p.src[p.pos] === ':') { nl = false; break; }
+      } else {
+        break;
+      }
+    }
+    if (nl) { this.rawPrint('\n'); this.printCol = 0; }
+  }
+
+  looksLikeStr(p) {
+    const rest = p.src.slice(p.pos).toUpperCase();
+    if (rest[0] === '"') return true;
+    for (const fn of ['CHR$', 'STR$', 'LEFT$', 'RIGHT$', 'MID$', 'STRING$'])
+      if (rest.startsWith(fn)) return true;
+    // identifier ending in $
+    return /^[A-Z][A-Z0-9]*\$/.test(rest);
+  }
+
+  // ── INPUT ──────────────────────────────────────────────────────
+  async doInput(p) {
+    let prompt = '? ';
+    this.skipWS(p);
+    if (p.src[p.pos] === '"') {
+      p.pos++;
+      let s = '';
+      while (p.pos < p.src.length && p.src[p.pos] !== '"') s += p.src[p.pos++];
+      if (p.src[p.pos] === '"') p.pos++;
+      prompt = s;
+      if (p.src[p.pos] === ';' || p.src[p.pos] === ',') p.pos++;
+    }
+    this.rawPrint(prompt);
+    const answer = await this.inputFn();
+    this.rawPrint(answer + '\n'); this.printCol = 0;
+    const parts = answer.split(',');
+    let pi = 0;
+    while (p.pos < p.src.length && /[A-Za-z]/.test(p.src[p.pos])) {
+      const name = this.readIdent(p);
+      const val  = (parts[pi++] || '').trim();
+      if (name.endsWith('$')) this.strVars.set(name, val);
+      else this.numVars.set(name, parseFloat(val) || 0);
+      this.skipWS(p);
+      if (p.src[p.pos] === ',') { p.pos++; this.skipWS(p); } else break;
+    }
+  }
+
+  // ================================================================
+  //  Expression parser  (recursive descent)
+  //  Precedence:  OR → AND → NOT → relational → +/- → */ → unary → ^ → primary
+  // ================================================================
+  parseExpr(p)  { return this.parseOr(p); }
+
+  parseOr(p) {
+    let v = this.parseAnd(p);
+    while (this.matchKw(p, 'OR'))  v = (Math.trunc(v) | Math.trunc(this.parseAnd(p)));
+    return v;
+  }
+
+  parseAnd(p) {
+    let v = this.parseNot(p);
+    while (this.matchKw(p, 'AND')) v = (Math.trunc(v) & Math.trunc(this.parseNot(p)));
+    return v;
+  }
+
+  parseNot(p) {
+    if (this.matchKw(p, 'NOT')) return this.parseNot(p) !== 0 ? 0 : -1;
+    return this.parseRel(p);
+  }
+
+  parseRel(p) {
+    const left = this.parseAdd(p);
+    this.skipWS(p);
+    const s = p.src;
+    if (s.slice(p.pos, p.pos+2) === '<>') { p.pos+=2; return left !== this.parseAdd(p) ? -1 : 0; }
+    if (s.slice(p.pos, p.pos+2) === '<=') { p.pos+=2; return left <= this.parseAdd(p) ? -1 : 0; }
+    if (s.slice(p.pos, p.pos+2) === '>=') { p.pos+=2; return left >= this.parseAdd(p) ? -1 : 0; }
+    if (s[p.pos] === '<') { p.pos++; return left <  this.parseAdd(p) ? -1 : 0; }
+    if (s[p.pos] === '>') { p.pos++; return left >  this.parseAdd(p) ? -1 : 0; }
+    if (s[p.pos] === '=') { p.pos++; return left === this.parseAdd(p) ? -1 : 0; }
+    return left;
+  }
+
+  parseAdd(p) {
+    let v = this.parseMul(p);
+    for (;;) {
+      this.skipWS(p);
+      if      (p.src[p.pos] === '+') { p.pos++; v += this.parseMul(p); }
+      else if (p.src[p.pos] === '-') { p.pos++; v -= this.parseMul(p); }
+      else break;
+    }
+    return v;
+  }
+
+  parseMul(p) {
+    let v = this.parseUnary(p);
+    for (;;) {
+      this.skipWS(p);
+      if      (p.src[p.pos] === '*') { p.pos++; v *= this.parseUnary(p); }
+      else if (p.src[p.pos] === '/') { p.pos++; const d = this.parseUnary(p); v = d ? v/d : 0; }
+      else break;
+    }
+    return v;
+  }
+
+  parseUnary(p) {
+    this.skipWS(p);
+    if (p.src[p.pos] === '-') { p.pos++; return -this.parsePow(p); }
+    if (p.src[p.pos] === '+') { p.pos++; return  this.parsePow(p); }
+    return this.parsePow(p);
+  }
+
+  parsePow(p) {
+    const b = this.parsePrimary(p);
+    this.skipWS(p);
+    if (p.src[p.pos] === '^') { p.pos++; return Math.pow(b, this.parseUnary(p)); }
+    return b;
+  }
+
+  parsePrimary(p) {
+    this.skipWS(p);
+
+    // Parenthesised expression
+    if (p.src[p.pos] === '(') {
+      p.pos++; this.skipWS(p);
+      const v = this.parseExpr(p);
+      this.expectCh(p, ')');
+      return v;
+    }
+
+    // Numeric literal
+    const nm = p.src.slice(p.pos).match(/^(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?/);
+    if (nm) { p.pos += nm[0].length; this.skipWS(p); return parseFloat(nm[0]); }
+
+    // ── Math functions ─────────────────────────────────────────
+    // BUG FIX: use matchKwLP (startsWith-based) NOT regex, to avoid broken RegExp
+    const mathFns = [
+      ['SIN', Math.sin], ['COS', Math.cos], ['TAN', Math.tan], ['ATN', Math.atan],
+      ['EXP', Math.exp], ['LOG', Math.log], ['SQR', Math.sqrt], ['ABS', Math.abs],
+      ['INT', Math.floor],
+    ];
+    for (const [name, fn] of mathFns) {
+      if (this.matchKwLP(p, name)) {
+        const v = this.parseExpr(p); this.expectCh(p, ')');
+        return fn(v);
+      }
+    }
+
+    // SGN
+    if (this.matchKwLP(p, 'SGN')) {
+      const v = this.parseExpr(p); this.expectCh(p, ')');
+      return v > 0 ? 1 : v < 0 ? -1 : 0;
+    }
+
+    // LEN (takes string arg)
+    if (this.matchKwLP(p, 'LEN')) {
+      const s = this.parseStrExpr(p); this.expectCh(p, ')');
+      return s.length;
+    }
+
+    // ASC
+    if (this.matchKwLP(p, 'ASC')) {
+      const s = this.parseStrExpr(p); this.expectCh(p, ')');
+      return s ? s.charCodeAt(0) : 0;
+    }
+
+    // VAL
+    if (this.matchKwLP(p, 'VAL')) {
+      const s = this.parseStrExpr(p); this.expectCh(p, ')');
+      return parseFloat(s) || 0;
+    }
+
+    // RND
+    if (this.matchKwLP(p, 'RND')) {
+      this.parseExpr(p); this.expectCh(p, ')');
+      return Math.random();
+    }
+
+    // PEEK (stub)
+    if (this.matchKwLP(p, 'PEEK')) { this.parseExpr(p); this.expectCh(p, ')'); return 0; }
+
+    // TAB / SPC in expression context
+    if (this.matchKwLP(p, 'TAB') || this.matchKwLP(p, 'SPC')) {
+      const v = this.parseExpr(p); this.expectCh(p, ')'); return v;
+    }
+
+    // Identifier: variable or array element
+    const name = this.readIdent(p);
+    if (name) {
+      if (name.endsWith('$')) return 0;   // string var in numeric context
+      this.skipWS(p);
+      if (p.src[p.pos] === '(') {
+        p.pos++; this.skipWS(p);
+        const idx = Math.floor(this.parseExpr(p));
+        this.expectCh(p, ')');
+        const arr = this.arrays.get(name) || [];
+        return arr[idx] ?? 0;
+      }
+      return this.numVars.get(name) || 0;
+    }
+
+    // Skip unknown token
+    p.pos++;
+    return 0;
+  }
+
+  // ── String expressions ─────────────────────────────────────────
+  parseStrExpr(p) {
+    this.skipWS(p);
+    let result = this.parseStrPrimary(p);
+    this.skipWS(p);
+    while (p.src[p.pos] === '+') {
+      p.pos++; this.skipWS(p);
+      result += this.parseStrPrimary(p);
+      this.skipWS(p);
+    }
+    return result;
+  }
+
+  parseStrPrimary(p) {
+    this.skipWS(p);
+
+    // String literal
+    if (p.src[p.pos] === '"') {
+      p.pos++;
+      let s = '';
+      while (p.pos < p.src.length && p.src[p.pos] !== '"') s += p.src[p.pos++];
+      if (p.src[p.pos] === '"') p.pos++;
+      return s;
+    }
+
+    // ── String functions ───────────────────────────────────────
+    // BUG FIX: use matchKwLP (startsWith-based) so $ in name is handled safely
+
+    // CHR$(n)
+    if (this.matchKwLP(p, 'CHR$')) {
+      const c = Math.floor(this.parseExpr(p)); this.expectCh(p, ')');
+      return String.fromCharCode(c);
+    }
+
+    // STR$(n)
+    if (this.matchKwLP(p, 'STR$')) {
+      const v = this.parseExpr(p); this.expectCh(p, ')');
+      return ' ' + (Number.isInteger(v) ? v : parseFloat(v.toPrecision(9)));
+    }
+
+    // LEFT$(s,n)
+    if (this.matchKwLP(p, 'LEFT$')) {
+      const s = this.parseStrExpr(p); this.expectCh(p, ',');
+      const n = Math.floor(this.parseExpr(p)); this.expectCh(p, ')');
+      return s.slice(0, Math.max(0, n));
+    }
+
+    // RIGHT$(s,n)
+    if (this.matchKwLP(p, 'RIGHT$')) {
+      const s = this.parseStrExpr(p); this.expectCh(p, ',');
+      const n = Math.floor(this.parseExpr(p)); this.expectCh(p, ')');
+      return s.slice(Math.max(0, s.length - n));
+    }
+
+    // MID$(s,pos[,len])
+    if (this.matchKwLP(p, 'MID$')) {
+      const s   = this.parseStrExpr(p); this.expectCh(p, ',');
+      const pos = Math.floor(this.parseExpr(p)) - 1;
+      let   len = s.length;
+      if (p.src[p.pos] === ',') { p.pos++; len = Math.floor(this.parseExpr(p)); }
+      this.expectCh(p, ')');
+      return s.slice(Math.max(0, pos), Math.max(0, pos) + len);
+    }
+
+    // STRING$(n, char)
+    if (this.matchKwLP(p, 'STRING$')) {
+      const n = Math.floor(this.parseExpr(p)); this.expectCh(p, ',');
+      let fill;
+      if (p.src[p.pos] === '"') {
+        p.pos++; fill = p.src[p.pos++] || ' '; if (p.src[p.pos] === '"') p.pos++;
+      } else {
+        fill = String.fromCharCode(Math.floor(this.parseExpr(p)));
+      }
+      this.expectCh(p, ')');
+      return fill.repeat(Math.max(0, n));
+    }
+
+    // String variable
+    const name = this.readIdent(p);
+    if (name && name.endsWith('$')) return this.strVars.get(name) || '';
+
+    return '';
+  }
+}
+
+// ================================================================
+//  UI / Shell
+// ================================================================
+
+const outEl   = document.getElementById('output');
+const inputEl = document.getElementById('input-field');
+const areaEl  = document.getElementById('output-area');
+
+let shiftOn      = false;
+let inputResolve = null;
+let pendingInput = false;
+
+function printStr(s) { outEl.textContent += s; areaEl.scrollTop = areaEl.scrollHeight; }
+function printLine(s) { printStr(s + '\n'); }
+
+function requestInput() {
+  pendingInput = true;
+  inputEl.style.color = '#ffff88';
+  inputEl.placeholder = '...';
+  return new Promise(resolve => { inputResolve = resolve; });
+}
+
+const interp = new BasicInterpreter(() => requestInput());
+
+function submitInput() {
+  const val = inputEl.value;
+  inputEl.value = '';
+  printLine('');
+
+  if (pendingInput && inputResolve) {
+    pendingInput = false;
+    inputEl.style.color = '';
+    inputEl.placeholder = 'TYPE COMMANDS OR BASIC CODE...';
+    const cb = inputResolve; inputResolve = null;
+    cb(val); return;
+  }
+  handleCommand(val.trim().toUpperCase());
+}
+
+function handleCommand(raw) {
+  if (!raw) return;
+  printLine('\u25ba ' + raw);
+
+  const lineM = raw.match(/^(\d+)\s*(.*)/);
+  if (lineM) { interp.addLine(parseInt(lineM[1]), lineM[2]); return; }
+
+  const cmd = raw.toUpperCase();
+  if (cmd === 'RUN')       { cmdRun();  return; }
+  if (cmd === 'LIST')      { cmdList(); return; }
+  if (cmd === 'NEW')       { cmdNew();  return; }
+  if (cmd === 'CLR')       { interp.clrVars(); printLine('OK'); return; }
+  if (cmd.startsWith('LOAD')) {
+    const m = cmd.match(/^LOAD\s+"?([^"]+)"?/);
+    if (m) loadProgram(m[1].trim()); else printLine('?MISSING FILENAME');
+    return;
+  }
+  if (cmd === 'HELP') {
+    printLine('COMMANDS: RUN LIST NEW CLR LOAD"NAME" HELP');
+    printLine('TYPE LINE NUMBER + BASIC TO ENTER A PROGRAM.');
+    return;
+  }
+  // Immediate mode
+  interp.addLine(0, raw);
+  interp.run(0).catch(e => printLine('?ERROR: ' + e)).finally(() => interp.lines.delete(0));
+}
+
+function cmdRun()  {
+  if (interp.running) return;
+  outEl.textContent = ''; printLine('');
+  interp.run().catch(e => printLine('?ERROR: ' + e));
+}
+function cmdList() { printLine(''); printLine(interp.listProgram()); }
+function cmdNew()  {
+  interp.reset(); outEl.textContent = '';
+  printLine('');
+  printLine('   **** CBM BASIC V2 ****');
+  printLine('');
+  printLine(' 64K RAM SYSTEM  38911 BASIC BYTES FREE');
+  printLine('');
+  printLine('READY.');
+}
+function doBreak() {
+  interp.stopped = true; interp.running = false;
+  printLine('\nBREAK');
+}
+
+// ── On-screen keyboard ─────────────────────────────────────────
+function pressKey(k) {
+  inputEl.focus();
+  if (k === 'Enter')     { submitInput(); return; }
+  if (k === 'Backspace') { inputEl.value = inputEl.value.slice(0, -1); return; }
+  let c = k;
+  if (shiftOn) {
+    const sm = {'1':'!','2':'"','3':'#','4':'$','5':'%','6':'&',"7":"'",'8':'(','9':')','0':'0',',':'<','.':'>','/':'?'};
+    c = sm[k] || k;
+    shiftOn = false;
+    document.getElementById('shift-key').style.background = '';
+  }
+  inputEl.value += c;
+}
+
+function toggleShift() {
+  shiftOn = !shiftOn;
+  document.getElementById('shift-key').style.background = shiftOn ? '#5555cc' : '';
+}
+
+function insertKw(kw) {
+  inputEl.focus();
+  if (kw.endsWith('\n')) { inputEl.value = kw.slice(0,-1); submitInput(); }
+  else inputEl.value += kw;
+}
+
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); submitInput(); }
+});
+
+// ── Sample Programs ────────────────────────────────────────────
+const PROGRAMS = [
+  {
+    name: 'HELLO WORLD',
+    desc: 'Classic first program',
+    code:
+`10 PRINT "HELLO, WORLD!"
+20 PRINT "COMMODORE 64 BASIC V2"
+30 FOR I=1 TO 5
+40 PRINT "LINE ";I
+50 NEXT I
+60 END`
+  },
+  {
+    name: 'SINE WAVE',
+    desc: 'ASCII art sine wave',
+    code:
+`10 REM ASCII SINE WAVE
+20 FOR A=0 TO 630 STEP 5
+30 PRINT TAB(39+38*SIN(A/100));"*"
+40 NEXT A
+50 PRINT "DONE!"`
+  },
+  {
+    name: 'COUNTDOWN',
+    desc: 'Countdown with SLEEP',
+    code:
+`10 PRINT "*** LAUNCH COUNTDOWN ***"
+20 PRINT
+30 FOR I=10 TO 1 STEP -1
+40 PRINT I;"..."
+50 SLEEP 30
+60 NEXT I
+70 PRINT "*** LIFTOFF! ***"`
+  },
+  {
+    name: 'FIBONACCI',
+    desc: 'Fibonacci sequence',
+    code:
+`10 PRINT "FIBONACCI SEQUENCE:"
+20 A=0 : B=1
+30 FOR I=1 TO 20
+40 PRINT A;" ";
+50 C=A+B : A=B : B=C
+60 NEXT I
+70 PRINT
+80 END`
+  },
+  {
+    name: 'GUESS A NUMBER',
+    desc: 'Interactive number game',
+    code:
+`10 PRINT "*** GUESS MY NUMBER ***"
+20 PRINT
+30 N=INT(RND(1)*100)+1
+40 G=0
+50 PRINT "I AM THINKING OF A NUMBER 1-100"
+60 INPUT "YOUR GUESS";A
+70 G=G+1
+80 IF A<N THEN PRINT "TOO LOW!" : GOTO 60
+90 IF A>N THEN PRINT "TOO HIGH!" : GOTO 60
+100 PRINT "CORRECT IN ";G;" GUESSES!"
+110 END`
+  },
+  {
+    name: 'PRIME NUMBERS',
+    desc: 'Primes up to 100',
+    code:
+`10 PRINT "PRIME NUMBERS UP TO 100:"
+20 DIM P(101)
+30 FOR I=2 TO 100
+40 P(I)=1
+50 NEXT I
+60 FOR I=2 TO 10
+70 IF P(I)=0 THEN GOTO 100
+80 FOR J=I*2 TO 100 STEP I
+90 P(J)=0 : NEXT J
+100 NEXT I
+110 FOR I=2 TO 100
+120 IF P(I)=1 THEN PRINT I;" ";
+130 NEXT I
+140 PRINT`
+  },
+  {
+    name: 'STAR PATTERN',
+    desc: 'Diamond star pattern',
+    code:
+`10 FOR I=1 TO 9 STEP 2
+20 PRINT TAB((20-I)/2);STRING$(I,"*")
+30 NEXT I
+40 FOR I=7 TO 1 STEP -2
+50 PRINT TAB((20-I)/2);STRING$(I,"*")
+60 NEXT I`
+  },
+  {
+    name: 'TIMES TABLE',
+    desc: 'Multiplication table',
+    code:
+`10 PRINT "TIMES TABLE"
+20 PRINT "-------------------"
+30 FOR I=1 TO 10
+40 FOR J=1 TO 10
+50 PRINT TAB((J-1)*5);I*J;
+60 NEXT J
+70 PRINT
+80 NEXT I`
+  }
+];
+
+function showPrograms() {
+  const list = document.getElementById('prog-list');
+  list.innerHTML = '';
+  PROGRAMS.forEach(prog => {
+    const div = document.createElement('div');
+    div.className = 'prog-item';
+    div.innerHTML = `<div class="prog-name">${prog.name}</div><div class="prog-desc">${prog.desc}</div>`;
+    div.onclick = () => { loadProgramObj(prog); closePrograms(); };
+    list.appendChild(div);
+  });
+  document.getElementById('prog-modal').classList.add('open');
+}
+
+function closePrograms() { document.getElementById('prog-modal').classList.remove('open'); }
+
+function loadProgramObj(prog) {
+  interp.reset(); outEl.textContent = '';
+  prog.code.split('\n').forEach(line => {
+    const m = line.trim().match(/^(\d+)\s*(.*)/);
+    if (m) interp.addLine(parseInt(m[1]), m[2].toUpperCase());
+  });
+  printLine('LOADED: ' + prog.name);
+  printLine('TYPE RUN TO START, OR LIST TO SEE CODE.');
+}
+
+function loadProgram(name) {
+  const prog = PROGRAMS.find(p => p.name.toUpperCase() === name.toUpperCase());
+  if (prog) loadProgramObj(prog);
+  else printLine('?FILE NOT FOUND');
+}
+
+// ── Boot ──────────────────────────────────────────────────────
+cmdNew();
+</script>
+</body>
+</html>
