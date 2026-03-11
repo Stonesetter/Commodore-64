@@ -1,4 +1,5 @@
 # BSDBASIC — CBM BASIC V2 Interpreter
+![Screenshot of the Commodore-64 Program Clone](commodoreSS.jpg)
 
 A faithful Microsoft CBM BASIC V2 interpreter (Commodore 64 dialect) available in two flavors:
 
